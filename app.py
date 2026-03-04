@@ -29,7 +29,7 @@ URUN_LISTESI = [
 KILO_BUTTONS = [1, 2, 3, 5, 10, 15, 20, 25, 30]
 ODEME_TIPLERI = ["Nakit", "Veresiye", "POS", "Hesaba"]
 
-DB_NAME = "manti_takip_v34.db"
+DB_NAME = os.path.join(os.environ.get("DB_PATH", "/data"), "manti_takip_v34.db")
 
 # ---------------------------------------------------------
 # OTOMATİK YEDEK SİSTEMİ
