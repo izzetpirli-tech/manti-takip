@@ -494,6 +494,10 @@ def sayfa_sevkiyat():
     st.markdown("# 📦 SEVKİYAT GİRİŞİ")
     musteriler = tum_musteriler()
 
+    # Session state başlangıç değerleri
+    for key, default in [("sevk_bayi","-- Seçin --"),("sevk_not",""),("sevk_miktar",0.0),("son_kayit_mesaj","")]:
+        if key not in st.session_state: st.session_state[key] = default
+
     left, right = st.columns([3, 1])
 
     with left:
@@ -501,68 +505,76 @@ def sayfa_sevkiyat():
         with col1:
             tarih = st.text_input("Tarih", value=st.session_state.calisma_tarihi)
         with col2:
-            bayi = st.selectbox("Müşteri / Bayi", ["-- Seçin --"] + musteriler)
+            bayi_liste = ["-- Seçin --"] + musteriler
+            bayi_idx = bayi_liste.index(st.session_state.sevk_bayi) if st.session_state.sevk_bayi in bayi_liste else 0
+            bayi = st.selectbox("Müşteri / Bayi", bayi_liste, index=bayi_idx)
+            st.session_state.sevk_bayi = bayi
 
+        # ÜRÜN SEÇİMİ
         st.markdown("**Ürün Seçimi**")
         urun_cols = st.columns(5)
         for i, urun in enumerate(URUN_LISTESI):
             with urun_cols[i % 5]:
                 secili = st.session_state.secili_urun == urun
-                btn_style = "btn-yellow" if secili else ""
-                st.markdown(f'<div class="{btn_style}">', unsafe_allow_html=True)
-                if st.button(urun, use_container_width=True, key=f"urun_{i}"):
+                if st.button(("✓ " if secili else "") + urun, use_container_width=True, key=f"urun_{i}",
+                             type="primary" if secili else "secondary"):
                     st.session_state.secili_urun = urun
                     st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown(f"**Seçili Ürün:** `{st.session_state.secili_urun}`")
+        st.markdown(f"**Seçili:** `{st.session_state.secili_urun}` | **Ödeme:** `{st.session_state.secili_odeme}`")
 
+        # ÖDEME TİPİ
         st.markdown("**Ödeme Tipi**")
         odeme_cols = st.columns(4)
         for i, odeme in enumerate(ODEME_TIPLERI):
             with odeme_cols[i]:
-                if st.button(odeme, use_container_width=True, key=f"odeme_{i}",
-                             type="primary" if st.session_state.secili_odeme == odeme else "secondary"):
+                secili_o = st.session_state.secili_odeme == odeme
+                if st.button(("✓ " if secili_o else "") + odeme, use_container_width=True, key=f"odeme_{i}",
+                             type="primary" if secili_o else "secondary"):
                     st.session_state.secili_odeme = odeme
                     st.rerun()
 
+        # HIZLI KİLO
         st.markdown("**Hızlı Miktar (KG)**")
         kilo_cols = st.columns(len(KILO_BUTTONS))
         for i, kg in enumerate(KILO_BUTTONS):
             with kilo_cols[i]:
                 if st.button(str(kg), use_container_width=True, key=f"kg_{i}"):
-                    st.session_state["miktar_input"] = float(kg)
+                    st.session_state.sevk_miktar = float(kg)
                     st.rerun()
 
         col_m, col_n = st.columns([1, 2])
         with col_m:
             miktar = st.number_input("Manuel KG", min_value=0.0, step=0.5,
-                                     value=st.session_state.get("miktar_input", 0.0), format="%.2f")
+                                     value=float(st.session_state.sevk_miktar), format="%.2f")
+            st.session_state.sevk_miktar = miktar
         with col_n:
-            not_metin = st.text_input("Not (opsiyonel)", "")
+            not_metin = st.text_input("Not (opsiyonel)", value=st.session_state.sevk_not)
+            st.session_state.sevk_not = not_metin
 
-        st.markdown('<div class="btn-green">', unsafe_allow_html=True)
-        kaydet_btn = st.button("💾 KAYDET", use_container_width=True, type="primary")
-        st.markdown('</div>', unsafe_allow_html=True)
+        if st.session_state.son_kayit_mesaj:
+            st.success(st.session_state.son_kayit_mesaj)
 
-        if kaydet_btn:
+        if st.button("💾 KAYDET", use_container_width=True, type="primary"):
             if bayi == "-- Seçin --":
                 st.error("Müşteri seçin!")
-            elif miktar <= 0:
+            elif st.session_state.sevk_miktar <= 0:
                 st.error("Geçerli miktar girin!")
             else:
                 urun = st.session_state.secili_urun
                 fiyat = bayi_fiyat(bayi, urun)
                 if fiyat == 0:
-                    st.warning(f"⚠️ {bayi} için '{urun}' fiyatı tanımlı değil! Lütfen Müşteri Yönetimi'nden fiyat tanımlayın.")
+                    st.warning(f"⚠️ {bayi} için '{urun}' fiyatı tanımlı değil!")
                 else:
                     conn = get_db(); cur = conn.cursor()
-                    cur.execute("""INSERT INTO sevkiyatlar (tarih, bayi, urun, miktar, birim_fiyat, toplam_tutar, aciklama, odeme_tipi)
-                                   VALUES (?,?,?,?,?,?,?,?)""",
-                                (tarih, bayi, urun, miktar, fiyat, miktar * fiyat, not_metin, st.session_state.secili_odeme))
+                    m = st.session_state.sevk_miktar
+                    cur.execute("INSERT INTO sevkiyatlar (tarih,bayi,urun,miktar,birim_fiyat,toplam_tutar,aciklama,odeme_tipi) VALUES (?,?,?,?,?,?,?,?)",
+                                (tarih, bayi, urun, m, fiyat, m*fiyat, not_metin, st.session_state.secili_odeme))
                     conn.commit(); conn.close()
-                    st.success(f"✓ Kaydedildi: {bayi} → {urun} → {miktar} KG → {miktar*fiyat:,.2f} TL")
-                    st.session_state["miktar_input"] = 0.0
+                    st.session_state.son_kayit_mesaj = f"✓ {bayi} → {urun} → {m} KG → {m*fiyat:,.2f} TL"
+                    st.session_state.sevk_miktar = 0.0
+                    st.session_state.sevk_not = ""
+                    st.rerun()
 
     with right:
         st.markdown("**Müşteri Bilgisi**")
@@ -573,18 +585,16 @@ def sayfa_sevkiyat():
             cur.execute("SELECT kdv_durum FROM musteriler WHERE ad=?", (bayi,))
             kdv_r = cur.fetchone(); conn.close()
             kdv = kdv_r[0] if kdv_r else "Dahil"
+            kdv_renk = "#9AE6B4" if kdv == "Dahil" else "#F6AD55"
+            ay_kg, ay_tl, yil_kg, yil_tl = bayi_istatistik(bayi)
 
             st.markdown(f"""
             <div class="card">
             <div class="card-title">{bayi}</div>
             <div style="font-size:28px;font-family:'IBM Plex Mono',monospace;color:#F6E05E;font-weight:700;">{fiyat:.2f} TL</div>
             <div class="sub-text">{urun}</div>
-            <div style="margin-top:8px;font-size:12px;color:{'#9AE6B4' if kdv=='Dahil' else '#F6AD55'};">KDV {kdv}</div>
+            <div style="margin-top:8px;font-size:12px;color:{kdv_renk};">KDV {kdv}</div>
             </div>
-            """, unsafe_allow_html=True)
-
-            ay_kg, ay_tl, yil_kg, yil_tl = bayi_istatistik(bayi)
-            st.markdown(f"""
             <div class="card">
             <div class="card-title">Canlı Karne</div>
             <div class="sub-text">Bu Ay</div>
@@ -598,16 +608,12 @@ def sayfa_sevkiyat():
             yeni_fiyat = st.number_input("Yeni Fiyat", min_value=0.0, value=fiyat, step=0.5, format="%.2f")
             if st.button("Fiyatı Güncelle"):
                 conn = get_db(); cur = conn.cursor()
-                cur.execute("""INSERT OR REPLACE INTO fiyatlar (id, musteri_ad, urun_ad, fiyat)
-                               VALUES ((SELECT id FROM fiyatlar WHERE musteri_ad=? AND urun_ad=?), ?, ?, ?)""",
+                cur.execute("INSERT OR REPLACE INTO fiyatlar (id,musteri_ad,urun_ad,fiyat) VALUES ((SELECT id FROM fiyatlar WHERE musteri_ad=? AND urun_ad=?),?,?,?)",
                             (bayi, urun, bayi, urun, yeni_fiyat))
                 conn.commit(); conn.close()
                 st.success("Fiyat güncellendi!")
                 st.rerun()
 
-# ---------------------------------------------------------
-# SAYFA: RAPORLAR
-# ---------------------------------------------------------
 def sayfa_rapor():
     st.markdown("# 📄 RAPORLAR & VERİ YÖNETİMİ")
 
