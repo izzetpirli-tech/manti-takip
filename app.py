@@ -1039,6 +1039,25 @@ def main():
             else:
                 st.error("❌ Hata! ENV ayarlarını kontrol edin.")
 
+        st.markdown("---")
+        st.markdown('<div style="font-size:11px;color:#718096;margin-bottom:6px;">📂 Veritabanı Yükle</div>', unsafe_allow_html=True)
+        uploaded_db = st.file_uploader("", type=["db"], label_visibility="collapsed")
+        if uploaded_db is not None:
+            if st.button("⚠️ YÜKLE VE DEĞİŞTİR", use_container_width=True, type="primary"):
+                try:
+                    if os.path.exists(DB_NAME):
+                        yedek_yolu = DB_NAME + f".bak_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                        shutil.copy2(DB_NAME, yedek_yolu)
+                    db_dir = os.path.dirname(DB_NAME)
+                    if db_dir:
+                        os.makedirs(db_dir, exist_ok=True)
+                    with open(DB_NAME, "wb") as f:
+                        f.write(uploaded_db.getbuffer())
+                    st.success("✅ Veritabanı yüklendi!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Hata: {e}")
+
     # Sayfa yönlendirmesi
     page = st.session_state.aktif_sayfa
     if page == "Dashboard": sayfa_dashboard()
