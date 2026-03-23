@@ -17,6 +17,7 @@ templates = Jinja2Templates(directory="templates")
 GIZLI_KULLANICI = "PATRON"
 GIZLI_SIFRE     = "13451098618"
 SESSION_COOKIE  = "manti_session"
+TARIH_COOKIE    = "aktif_tarih"
 DB_NAME         = os.path.join(os.environ.get("DB_PATH", "/data"), "manti_takip_v34.db")
 
 URUN_LISTESI  = ["Soyalı Bohça","Soyalı Üçgen","Soyalı Ufak","Ekstra Özel","Ekstra Yaş","İçli Köfte","Ekstra Paket","Erişte","Özbek","El Mantısı"]
@@ -51,6 +52,14 @@ def db_setup():
         musteri_ad TEXT, urun_ad TEXT, fiyat REAL,
         UNIQUE(musteri_ad, urun_ad)
     )""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS giderler (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tarih TEXT NOT NULL,
+        kategori TEXT NOT NULL,
+        aciklama TEXT,
+        tutar REAL NOT NULL,
+        odeme_tipi TEXT DEFAULT 'Nakit'
+    )""")
     try: cur.execute("ALTER TABLE sevkiyatlar ADD COLUMN odeme_tipi TEXT DEFAULT 'Nakit'")
     except: pass
     conn.commit(); conn.close()
@@ -83,9 +92,10 @@ def auth_required(request: Request):
 
 def ctx(request: Request, **kwargs):
     """Tüm template'lere ortak context."""
+    aktif_tarih = request.cookies.get(TARIH_COOKIE, tarih_bugun())
     return {"request": request, "urun_listesi": URUN_LISTESI,
             "odeme_tipleri": ODEME_TIPLERI, "kilo_listesi": KILO_LISTESI,
-            "tarih_bugun": tarih_bugun(), **kwargs}
+            "tarih_bugun": tarih_bugun(), "aktif_tarih": aktif_tarih, **kwargs}
 
 def tum_musteriler():
     conn = get_db(); cur = conn.cursor()
@@ -134,6 +144,20 @@ async def logout():
 # ---------------------------------------------------------
 # DASHBOARD
 # ---------------------------------------------------------
+@app.post("/tarih-kilitle")
+async def tarih_kilitle(request: Request, tarih: str = Form(...)):
+    if not is_authenticated(request): return RedirectResponse("/login", status_code=302)
+    response = RedirectResponse("/", status_code=302)
+    response.set_cookie(TARIH_COOKIE, tarih, httponly=True, max_age=86400*7)
+    return response
+
+@app.get("/tarih-sifirla")
+async def tarih_sifirla(request: Request):
+    if not is_authenticated(request): return RedirectResponse("/login", status_code=302)
+    response = RedirectResponse("/", status_code=302)
+    response.delete_cookie(TARIH_COOKIE)
+    return response
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     if not is_authenticated(request): return RedirectResponse("/login", status_code=302)
@@ -466,6 +490,66 @@ async def db_yukle(request: Request, dosya: UploadFile = File(...)):
     with open(DB_NAME, "wb") as f:
         f.write(await dosya.read())
     return RedirectResponse("/?mesaj=Veritabani yuklendi", status_code=302)
+
+
+# ---------------------------------------------------------
+# GİDERLER
+# ---------------------------------------------------------
+GIDER_KATEGORILERI = ["Hammadde", "Personel Maaşı", "Kira & Fatura", "Araç & Yakıt", "Diğer"]
+
+@app.get("/giderler", response_class=HTMLResponse)
+async def giderler_get(request: Request, mesaj: str = "", hata: str = ""):
+    if not is_authenticated(request): return RedirectResponse("/login", status_code=302)
+    bas, bit = bu_ay_aralik()
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("SELECT * FROM giderler ORDER BY tarih DESC, id DESC")
+    kayitlar = [dict(r) for r in cur.fetchall()]
+    cur.execute("SELECT kategori, SUM(tutar) FROM giderler WHERE tarih BETWEEN ? AND ? GROUP BY kategori", (bas, bit))
+    kategori_ozet = dict(cur.fetchall())
+    cur.execute("SELECT SUM(tutar) FROM giderler WHERE tarih BETWEEN ? AND ?", (bas, bit))
+    ay_toplam = cur.fetchone()[0] or 0
+    cur.execute("SELECT SUM(toplam_tutar) FROM sevkiyatlar WHERE tarih BETWEEN ? AND ? AND urun != 'TAHSİLAT'", (bas, bit))
+    ay_ciro = cur.fetchone()[0] or 0
+    conn.close()
+    return templates.TemplateResponse("giderler.html", ctx(request,
+        kayitlar=kayitlar, kategori_ozet=kategori_ozet,
+        ay_toplam=ay_toplam, ay_ciro=ay_ciro,
+        net_kar=ay_ciro - ay_toplam,
+        gider_kategorileri=GIDER_KATEGORILERI,
+        mesaj=mesaj, hata=hata
+    ))
+
+@app.post("/giderler")
+async def giderler_post(request: Request,
+    tarih: str = Form(...), kategori: str = Form(...),
+    aciklama: str = Form(""), tutar: float = Form(...),
+    odeme_tipi: str = Form(...)):
+    if not is_authenticated(request): return RedirectResponse("/login", status_code=302)
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("INSERT INTO giderler (tarih, kategori, aciklama, tutar, odeme_tipi) VALUES (?,?,?,?,?)",
+                (tarih, kategori, aciklama, tutar, odeme_tipi))
+    conn.commit(); conn.close()
+    return RedirectResponse(f"/giderler?mesaj={kategori} gideri kaydedildi: {tutar:,.2f} TL", status_code=302)
+
+@app.get("/giderler/sil/{gider_id}")
+async def gider_sil(request: Request, gider_id: int):
+    if not is_authenticated(request): return RedirectResponse("/login", status_code=302)
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("DELETE FROM giderler WHERE id=?", (gider_id,))
+    conn.commit(); conn.close()
+    return RedirectResponse("/giderler", status_code=302)
+
+@app.post("/giderler/duzenle/{gider_id}")
+async def gider_duzenle(request: Request, gider_id: int,
+    tarih: str = Form(...), kategori: str = Form(...),
+    aciklama: str = Form(""), tutar: float = Form(...),
+    odeme_tipi: str = Form(...)):
+    if not is_authenticated(request): return RedirectResponse("/login", status_code=302)
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("UPDATE giderler SET tarih=?, kategori=?, aciklama=?, tutar=?, odeme_tipi=? WHERE id=?",
+                (tarih, kategori, aciklama, tutar, odeme_tipi, gider_id))
+    conn.commit(); conn.close()
+    return RedirectResponse("/giderler", status_code=302)
 
 if __name__ == "__main__":
     import uvicorn

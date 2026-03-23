@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+{% block title %}Giderler — Mantı Takip{% endblock %}
+{% block topbar_title %}Gider Yönetimi{% endblock %}
+
+{% block content %}
+{% if mesaj %}
+<div class="alert alert-success"><i class="bi bi-check-circle-fill"></i><span>{{ mesaj }}</span></div>
+{% endif %}
+{% if hata %}
+<div class="alert alert-danger"><i class="bi bi-exclamation-circle-fill"></i><span>{{ hata }}</span></div>
+{% endif %}
+
+<div class="page-header">
+  <h1>Giderler</h1>
+  <p>Aylık gider takibi ve kâr/zarar analizi</p>
+</div>
+
+<!-- KÂR/ZARAR ÖZET -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;">
+  <div class="stat-card" style="border-top:3px solid var(--accent);">
+    <div class="stat-label">Bu Ay Ciro</div>
+    <div class="stat-value" style="color:var(--accent);">{{ "{:,.0f}".format(ay_ciro) }}</div>
+    <div class="stat-sub">₺ · Sevkiyat geliri</div>
+  </div>
+  <div class="stat-card" style="border-top:3px solid var(--red);">
+    <div class="stat-label">Bu Ay Gider</div>
+    <div class="stat-value" style="color:var(--red);">{{ "{:,.0f}".format(ay_toplam) }}</div>
+    <div class="stat-sub">₺ · Toplam gider</div>
+  </div>
+  <div class="stat-card" style="border-top:3px solid {% if net_kar >= 0 %}var(--green){% else %}var(--red){% endif %};">
+    <div class="stat-label">Net Kâr</div>
+    <div class="stat-value" style="color:{% if net_kar >= 0 %}var(--green){% else %}var(--red){% endif %};">
+      {{ "{:,.0f}".format(net_kar) }}
+    </div>
+    <div class="stat-sub">₺ · Ciro − Gider</div>
+  </div>
+  <div class="stat-card" style="border-top:3px solid var(--purple);">
+    <div class="stat-label">Kâr Marjı</div>
+    <div class="stat-value" style="color:var(--purple);">
+      {% if ay_ciro > 0 %}% {{ "{:.1f}".format(net_kar / ay_ciro * 100) }}{% else %}—{% endif %}
+    </div>
+    <div class="stat-sub">Bu ay</div>
+  </div>
+</div>
+
+<!-- KATEGORİ ÖZET + FORM -->
+<div style="display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start;margin-bottom:24px;">
+
+  <!-- KATEGORİ DAĞILIMI -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-title">Kategori Dağılımı (Bu Ay)</div>
+    </div>
+    <div class="card-body" style="padding:12px 18px;">
+      {% if kategori_ozet %}
+        {% for kat, toplam in kategori_ozet.items() %}
+        {% set pct = (toplam / ay_toplam * 100) if ay_toplam > 0 else 0 %}
+        <div style="margin-bottom:14px;">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
+            <span style="font-size:13px;font-weight:500;color:var(--text-primary);">{{ kat }}</span>
+            <span style="font-size:13px;font-weight:600;color:var(--text-primary);">{{ "{:,.0f}".format(toplam) }} ₺</span>
+          </div>
+          <div style="height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;">
+            <div style="height:100%;width:{{ pct }}%;background:var(--accent);border-radius:3px;transition:width 0.4s ease;"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text-tertiary);margin-top:2px;">% {{ "{:.1f}".format(pct) }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div style="text-align:center;padding:32px;color:var(--text-tertiary);font-size:13px;">
+          Bu ay henüz gider kaydı yok
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- HIZLI GİDER EKLE -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-title">Gider Ekle</div>
+    </div>
+    <div class="card-body">
+      <form method="post" action="/giderler">
+        <div class="form-group">
+          <label class="form-label">Tarih</label>
+          <input type="date" name="tarih" class="form-control" value="{{ aktif_tarih }}" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kategori</label>
+          <select name="kategori" class="form-select" required>
+            {% for k in gider_kategorileri %}
+            <option value="{{ k }}">{{ k }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Açıklama</label>
+          <input type="text" name="aciklama" class="form-control" placeholder="Gider detayı...">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tutar (₺)</label>
+          <input type="number" name="tutar" class="form-control input-large"
+                 step="0.5" min="0" required placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ödeme Tipi</label>
+          <input type="hidden" name="odeme_tipi" id="odemeHidden" value="Nakit">
+          <div class="toggle-group">
+            {% for o in odeme_tipleri %}
+            <button type="button" class="toggle-btn {% if o == 'Nakit' %}active{% endif %}"
+                    data-odeme="{{ o }}" onclick="secOdeme(this)">{{ o }}</button>
+            {% endfor %}
+          </div>
+        </div>
+        <button type="submit" class="btn btn-danger btn-full btn-lg" style="margin-top:8px;">
+          <i class="bi bi-plus-lg"></i> Gider Kaydet
+        </button>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<!-- GİDER KAYITLARI -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-header-title">Tüm Gider Kayıtları</div>
+      <div class="card-header-sub">{{ kayitlar|length }} kayıt</div>
+    </div>
+  </div>
+  {% if kayitlar %}
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Tarih</th>
+          <th>Kategori</th>
+          <th>Açıklama</th>
+          <th>Tutar</th>
+          <th>Ödeme</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for g in kayitlar %}
+        <tr>
+          <td class="mono text-muted" style="font-size:12px;">{{ g.id }}</td>
+          <td class="mono" style="font-size:12px;">{{ g.tarih }}</td>
+          <td>
+            {% set kat_renkler = {
+              'Hammadde': '#E8F4FF:#0071E3',
+              'Personel Maaşı': '#F0FBF2:#34C759',
+              'Kira & Fatura': '#FFF8ED:#FF9500',
+              'Araç & Yakıt': '#FFF2F1:#FF3B30',
+              'Diğer': '#F5F5F7:#6E6E73'
+            } %}
+            {% set renkler = kat_renkler.get(g.kategori, '#F5F5F7:#6E6E73').split(':') %}
+            <span style="background:{{ renkler[0] }};color:{{ renkler[1] }};padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;">
+              {{ g.kategori }}
+            </span>
+          </td>
+          <td style="color:var(--text-secondary);font-size:13px;">{{ g.aciklama or '—' }}</td>
+          <td class="mono fw-600" style="color:var(--red);">{{ "{:,.2f}".format(g.tutar) }} ₺</td>
+          <td>
+            <span class="badge badge-{{ g.odeme_tipi | lower }}">{{ g.odeme_tipi }}</span>
+          </td>
+          <td style="display:flex;gap:6px;">
+            <button class="btn btn-ghost btn-sm btn-icon" onclick="openEdit({{ g | tojson }})">
+              <i class="bi bi-pencil"></i>
+            </button>
+            <a href="/giderler/sil/{{ g.id }}" class="btn btn-ghost btn-sm btn-icon"
+               style="color:var(--red);"
+               onclick="return confirm('Bu gider silinsin mi?')">
+              <i class="bi bi-trash"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body" style="text-align:center;padding:48px;">
+    <div style="font-size:40px;margin-bottom:12px;">🧾</div>
+    <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">Gider kaydı yok</div>
+    <div style="font-size:13px;color:var(--text-tertiary);">Sağdaki formdan ilk gideri ekleyin</div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block modals %}
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Gider Düzenle</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <form id="editForm" method="post">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Tarih</label>
+            <input type="date" name="tarih" id="e_tarih" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Kategori</label>
+            <select name="kategori" id="e_kategori" class="form-select">
+              {% for k in gider_kategorileri %}
+              <option value="{{ k }}">{{ k }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Açıklama</label>
+          <input type="text" name="aciklama" id="e_aciklama" class="form-control">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Tutar (₺)</label>
+            <input type="number" name="tutar" id="e_tutar" class="form-control" step="0.5" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ödeme Tipi</label>
+            <select name="odeme_tipi" id="e_odeme" class="form-select">
+              {% for o in odeme_tipleri %}<option>{{ o }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal()">İptal</button>
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="bi bi-check-lg"></i> Güncelle
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function secOdeme(btn) {
+  document.querySelectorAll('[data-odeme]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('odemeHidden').value = btn.dataset.odeme;
+}
+
+function openEdit(g) {
+  document.getElementById('e_tarih').value    = g.tarih;
+  document.getElementById('e_kategori').value = g.kategori;
+  document.getElementById('e_aciklama').value = g.aciklama || '';
+  document.getElementById('e_tutar').value    = g.tutar;
+  document.getElementById('e_odeme').value    = g.odeme_tipi;
+  document.getElementById('editForm').action  = `/giderler/duzenle/${g.id}`;
+  document.getElementById('editModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('editModal').classList.remove('open');
+}
+document.getElementById('editModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+{% endblock %}

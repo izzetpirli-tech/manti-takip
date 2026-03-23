@@ -6,6 +6,39 @@
 {% endblock %}
 
 {% block content %}
+<!-- TARİH KİLİTLEME -->
+<div class="card mb-20" style="border-left:3px solid {% if aktif_tarih != tarih_bugun %}var(--orange){% else %}var(--border){% endif %};">
+  <div class="card-body" style="padding:14px 18px;">
+    <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px;">Aktif Giriş Tarihi</div>
+        <div style="font-size:20px;font-weight:700;color:{% if aktif_tarih != tarih_bugun %}var(--orange){% else %}var(--text-primary){% endif %};">
+          {{ aktif_tarih }}
+          {% if aktif_tarih != tarih_bugun %}
+          <span style="font-size:11px;font-weight:600;color:var(--orange);margin-left:8px;background:#FFF8ED;padding:2px 8px;border-radius:20px;">KİLİTLİ</span>
+          {% else %}
+          <span style="font-size:11px;color:var(--text-tertiary);margin-left:8px;">Bugün</span>
+          {% endif %}
+        </div>
+      </div>
+      <form method="post" action="/tarih-kilitle" style="display:flex;align-items:flex-end;gap:8px;flex:1;">
+        <div style="flex:1;min-width:160px;">
+          <label class="form-label">Tarihi Kilitle</label>
+          <input type="date" name="tarih" class="form-control" value="{{ aktif_tarih }}">
+        </div>
+        <button type="submit" class="btn btn-primary" style="white-space:nowrap;">
+          <i class="bi bi-lock"></i> Kilitle
+        </button>
+      </form>
+      {% if aktif_tarih != tarih_bugun %}
+      <a href="/tarih-sifirla" class="btn btn-ghost btn-sm" style="white-space:nowrap;">
+        <i class="bi bi-arrow-counterclockwise"></i> Bugüne Dön
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
 <div class="page-header">
   <h1>Genel Bakış</h1>
   <p>Aylık ve günlük performans özeti</p>
