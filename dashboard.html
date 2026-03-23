@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Mantı Takip{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
+{% block topbar_actions %}
+  <span style="font-size:12px;color:var(--text-tertiary);">{{ tarih_bugun }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Genel Bakış</h1>
+  <p>Aylık ve günlük performans özeti</p>
+</div>
+
+<!-- STAT GRID -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#E8F4FF;">💰</div>
+    <div class="stat-label">Bu Ay Ciro</div>
+    <div class="stat-value" style="color:var(--accent);">{{ "{:,.0f}".format(ay_ciro) }}</div>
+    <div class="stat-sub">₺ · Sevkiyat</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#F0FBF2;">📦</div>
+    <div class="stat-label">Bu Ay KG</div>
+    <div class="stat-value" style="color:var(--green);">{{ "{:,.1f}".format(ay_kg) }}</div>
+    <div class="stat-sub">kilogram</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#FFF8ED;">💵</div>
+    <div class="stat-label">Tahsilat</div>
+    <div class="stat-value" style="color:var(--orange);">{{ "{:,.0f}".format(tahsilat) }}</div>
+    <div class="stat-sub">₺ · Bu ay</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#F8F0FD;">👥</div>
+    <div class="stat-label">Müşteri</div>
+    <div class="stat-value" style="color:var(--purple);">{{ musteri_sayisi }}</div>
+    <div class="stat-sub">aktif bayi</div>
+  </div>
+</div>
+
+<!-- İKİNCİ SATIR -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;">
+  <div class="stat-card">
+    <div class="stat-label">Bugün</div>
+    <div class="stat-value">{{ "{:,.0f}".format(bugun_ciro) }}</div>
+    <div class="stat-sub">₺ · {{ tarih_bugun }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Açık Bakiye</div>
+    <div class="stat-value" style="color:var(--red);">{{ "{:,.0f}".format(ay_ciro - tahsilat) }}</div>
+    <div class="stat-sub">₺ · Satış − Tahsilat</div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- HIZLI ERİŞİM -->
+<div style="margin-bottom:14px;">
+  <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:14px;text-transform:uppercase;letter-spacing:0.5px;font-size:11px;">Hızlı Erişim</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+    {% set items = [
+      ("/sevkiyat",   "bi-box-seam",      "#E8F4FF", "#0071E3", "Sevkiyat Girişi"),
+      ("/raporlar",   "bi-list-ul",        "#F0FBF2", "#34C759", "Raporlar"),
+      ("/musteriler", "bi-people",         "#F8F0FD", "#AF52DE", "Müşteriler"),
+      ("/tahsilat",   "bi-cash-stack",     "#FFF8ED", "#FF9500", "Tahsilat Girişi"),
+      ("/tahsilat/rapor","bi-wallet2",     "#FFF2F1", "#FF3B30", "Tahsilat Raporu"),
+      ("/analizler",  "bi-chart-line",     "#F5F5F7", "#6E6E73", "Analizler"),
+    ] %}
+    {% for href, icon, bg, fg, label in items %}
+    <a href="{{ href }}" style="text-decoration:none;">
+      <div style="background:{{ bg }};border:1px solid rgba(0,0,0,0.06);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:10px;transition:all 0.15s;cursor:pointer;"
+           onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.1)';this.style.transform='translateY(-2px)'"
+           onmouseout="this.style.boxShadow='none';this.style.transform='none'">
+        <i class="bi {{ icon }}" style="font-size:18px;color:{{ fg }};flex-shrink:0;"></i>
+        <span style="font-size:13px;font-weight:500;color:#1D1D1F;">{{ label }}</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

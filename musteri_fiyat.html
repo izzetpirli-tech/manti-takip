@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Fiyatlar — {{ musteri_ad }}{% endblock %}
+{% block topbar_title %}{{ musteri_ad }} · Fiyat Listesi{% endblock %}
+{% block topbar_actions %}
+  <a href="/musteriler" class="btn btn-ghost btn-sm">
+    <i class="bi bi-arrow-left"></i> Müşteriler
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ musteri_ad }}</h1>
+  <p>Ürün bazlı birim fiyat tanımları · KDV: {{ kdv }}</p>
+</div>
+
+<div style="display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:start;">
+
+  <!-- SOL: EKLE FORMU -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-title">Fiyat Tanımla</div>
+    </div>
+    <div class="card-body">
+      <form method="post" action="/musteriler/fiyat-kaydet/{{ musteri_ad }}">
+        <div class="form-group">
+          <label class="form-label">Ürün</label>
+          <select name="urun_ad" class="form-select">
+            {% for u in urun_listesi %}
+            <option value="{{ u }}">{{ u }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Birim Fiyat (₺/KG)</label>
+          <input type="number" name="fiyat" class="form-control input-large"
+                 step="0.5" min="0" required placeholder="0.00">
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">
+          <i class="bi bi-floppy"></i> Kaydet
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- SAĞ: TANIMLANAN FİYATLAR -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-header-title">Tanımlı Fiyatlar</div>
+        <div class="card-header-sub">{{ fiyatlar|length }} ürün tanımlı</div>
+      </div>
+    </div>
+    {% if fiyatlar %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Ürün Adı</th>
+            <th>Birim Fiyat</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in fiyatlar %}
+          <tr>
+            <td style="font-weight:500;">{{ f.urun_ad }}</td>
+            <td>
+              <span class="mono fw-600" style="font-size:16px;color:var(--accent);">
+                {{ "%.2f"|format(f.fiyat) }} ₺
+              </span>
+            </td>
+            <td>
+              <a href="/musteriler/fiyat-sil/{{ musteri_ad }}/{{ f.urun_ad }}"
+                 class="btn btn-ghost btn-sm btn-icon" style="color:var(--red);"
+                 onclick="return confirm('{{ f.urun_ad }} fiyatı silinsin mi?')">
+                <i class="bi bi-trash"></i>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card-body" style="text-align:center;padding:40px 20px;">
+      <div style="font-size:32px;margin-bottom:10px;">🏷️</div>
+      <div style="font-size:14px;color:var(--text-secondary);">Henüz fiyat tanımlı değil</div>
+      <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">Sol formdan fiyat ekleyebilirsiniz</div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

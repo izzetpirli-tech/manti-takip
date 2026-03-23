@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% block title %}Raporlar — Mantı Takip{% endblock %}
+{% block topbar_title %}Raporlar{% endblock %}
+{% block topbar_actions %}
+  <a href="/raporlar" class="btn btn-ghost btn-sm">
+    <i class="bi bi-arrow-clockwise"></i> Yenile
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Sevkiyat Raporları</h1>
+  <p>Filtreleyip sorgulayın, kayıtları düzenleyin</p>
+</div>
+
+<!-- FİLTRE KARTI -->
+<div class="card mb-20">
+  <div class="card-header">
+    <div class="card-header-title">Filtreler</div>
+  </div>
+  <div class="card-body">
+    <form method="get" action="/raporlar">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr auto;gap:12px;align-items:end;">
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Başlangıç</label>
+          <input type="date" name="bas" class="form-control" value="{{ bas }}">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Bitiş</label>
+          <input type="date" name="bit" class="form-control" value="{{ bit }}">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Müşteri Ara</label>
+          <input type="text" name="bayi_ara" class="form-control" placeholder="Ad ara..." value="{{ bayi_ara }}">
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Ürün</label>
+          <select name="urun_filtre" class="form-select">
+            <option value="TÜM ÜRÜNLER" {% if urun_filtre == 'TÜM ÜRÜNLER' %}selected{% endif %}>Tüm Ürünler</option>
+            {% for u in urun_listesi %}
+            <option value="{{ u }}" {% if urun_filtre == u %}selected{% endif %}>{{ u }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label class="form-label">Ödeme</label>
+          <select name="odeme_filtre" class="form-select">
+            <option value="TÜM ÖDEMELER" {% if odeme_filtre == 'TÜM ÖDEMELER' %}selected{% endif %}>Tüm Ödemeler</option>
+            {% for o in odeme_tipleri %}
+            <option value="{{ o }}" {% if odeme_filtre == o %}selected{% endif %}>{{ o }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary" style="white-space:nowrap;">Filtrele</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <a href="/raporlar?bas={{ tarih_bugun }}&bit={{ tarih_bugun }}" class="btn btn-ghost btn-sm">Bugün</a>
+        <a href="/raporlar" class="btn btn-ghost btn-sm">Bu Ay</a>
+        <a href="/raporlar?bas=&bit=" class="btn btn-ghost btn-sm">Tümü</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if rows %}
+<!-- ÖZET METRİKLER -->
+<div class="stats-grid" style="grid-template-columns:repeat(5,1fr);">
+  <div class="stat-card">
+    <div class="stat-label">Toplam Ciro</div>
+    <div class="stat-value" style="font-size:18px;">{{ "{:,.0f}".format(toplam_tl) }} ₺</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Toplam KG</div>
+    <div class="stat-value" style="font-size:18px;color:var(--green);">{{ "{:.1f}".format(toplam_kg) }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Nakit</div>
+    <div class="stat-value" style="font-size:18px;color:#1A7F3C;">{{ "{:,.0f}".format(t_nakit) }} ₺</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">POS</div>
+    <div class="stat-value" style="font-size:18px;color:#0056B3;">{{ "{:,.0f}".format(t_pos) }} ₺</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Veresiye</div>
+    <div class="stat-value" style="font-size:18px;color:var(--red);">{{ "{:,.0f}".format(t_veresiye) }} ₺</div>
+  </div>
+</div>
+
+<!-- TABLO -->
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-header-title">Kayıtlar</div>
+      <div class="card-header-sub">{{ rows|length }} sonuç</div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Tarih</th>
+          <th>Bayi</th>
+          <th>Ürün</th>
+          <th>KG</th>
+          <th>Birim Fiyat</th>
+          <th>Tutar</th>
+          <th>Ödeme</th>
+          <th>Not</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr class="{% if r.urun == 'TAHSİLAT' %}row-tahsilat{% endif %}">
+          <td class="mono text-muted" style="font-size:12px;">{{ r.id }}</td>
+          <td class="mono" style="font-size:12px;">{{ r.tarih }}</td>
+          <td style="font-weight:500;">{{ r.bayi }}</td>
+          <td>{{ r.urun }}</td>
+          <td class="mono">{% if r.urun != 'TAHSİLAT' %}{{ "%.2f"|format(r.miktar) }}{% else %}—{% endif %}</td>
+          <td class="mono">{% if r.urun != 'TAHSİLAT' %}{{ "%.2f"|format(r.birim_fiyat) }} ₺{% else %}—{% endif %}</td>
+          <td class="mono fw-600" style="color:var(--accent);">{{ "{:,.2f}".format(r.toplam_tutar) }} ₺</td>
+          <td>
+            <span class="badge badge-{{ r.odeme_tipi | lower | replace('ı','i') | replace('ş','s') | replace('ç','c') | replace('ö','o') | replace('ü','u') }}">
+              {{ r.odeme_tipi }}
+            </span>
+          </td>
+          <td style="color:var(--text-tertiary);font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.aciklama or '' }}</td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="openModal({{ r | tojson }})">
+              <i class="bi bi-pencil"></i>
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<div class="card">
+  <div class="card-body" style="text-align:center;padding:48px 20px;">
+    <div style="font-size:40px;margin-bottom:12px;">📋</div>
+    <div style="font-size:16px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">Kayıt bulunamadı</div>
+    <div style="font-size:13px;color:var(--text-tertiary);">Filtreleri değiştirip tekrar deneyin</div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block modals %}
+<!-- DÜZENLE MODAL -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Kaydı Düzenle</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <form id="editForm" method="post">
+      <input type="hidden" name="bas" value="{{ bas }}">
+      <input type="hidden" name="bit" value="{{ bit }}">
+      <div class="modal-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Tarih</label>
+            <input type="date" name="tarih" id="e_tarih" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Bayi</label>
+            <input type="text" name="bayi" id="e_bayi" class="form-control" required>
+          </div>
+        </div>
+
+        <div id="e_urun_row" class="form-group">
+          <label class="form-label">Ürün</label>
+          <select name="urun" id="e_urun" class="form-select">
+            {% for u in urun_listesi %}<option>{{ u }}</option>{% endfor %}
+          </select>
+        </div>
+
+        <div class="form-row" id="e_miktar_row">
+          <div class="form-group">
+            <label class="form-label">Miktar (KG)</label>
+            <input type="number" name="miktar" id="e_miktar" class="form-control" step="0.5">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Birim Fiyat (₺)</label>
+            <input type="number" name="birim_fiyat" id="e_birim_fiyat" class="form-control" step="0.5">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Tutar (₺)</label>
+            <input type="number" name="toplam_tutar" id="e_tutar" class="form-control" step="0.5">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ödeme Tipi</label>
+            <select name="odeme_tipi" id="e_odeme" class="form-select">
+              {% for o in odeme_tipleri %}<option>{{ o }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Not</label>
+          <input type="text" name="aciklama" id="e_aciklama" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <a id="deleteBtn" href="#" class="btn btn-danger btn-sm"
+           onclick="return confirm('Bu kayıt silinsin mi?')">
+          <i class="bi bi-trash"></i> Sil
+        </a>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal()">İptal</button>
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-check-lg"></i> Güncelle
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openModal(r) {
+  const isTah = r.urun === 'TAHSİLAT';
+  document.getElementById('e_tarih').value         = r.tarih;
+  document.getElementById('e_bayi').value          = r.bayi;
+  document.getElementById('e_tutar').value         = r.toplam_tutar;
+  document.getElementById('e_aciklama').value      = r.aciklama || '';
+  document.getElementById('e_odeme').value         = r.odeme_tipi;
+  document.getElementById('e_urun_row').style.display   = isTah ? 'none' : '';
+  document.getElementById('e_miktar_row').style.display  = isTah ? 'none' : '';
+  document.getElementById('e_tutar').readOnly = !isTah;
+
+  if (!isTah) {
+    document.getElementById('e_urun').value        = r.urun;
+    document.getElementById('e_miktar').value      = r.miktar;
+    document.getElementById('e_birim_fiyat').value = r.birim_fiyat;
+    // Auto-calc tutar
+    const calc = () => {
+      const m = parseFloat(document.getElementById('e_miktar').value) || 0;
+      const f = parseFloat(document.getElementById('e_birim_fiyat').value) || 0;
+      document.getElementById('e_tutar').value = (m * f).toFixed(2);
+    };
+    document.getElementById('e_miktar').oninput      = calc;
+    document.getElementById('e_birim_fiyat').oninput = calc;
+  }
+
+  document.getElementById('editForm').action    = `/raporlar/duzenle/${r.id}`;
+  document.getElementById('deleteBtn').href     = `/raporlar/sil/${r.id}?bas={{ bas }}&bit={{ bit }}`;
+  document.getElementById('editModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('editModal').classList.remove('open');
+}
+
+document.getElementById('editModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+{% endblock %}

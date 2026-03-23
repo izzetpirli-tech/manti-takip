@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Müşteriler — Mantı Takip{% endblock %}
+{% block topbar_title %}Müşteri Yönetimi{% endblock %}
+
+{% block content %}
+{% if mesaj %}
+<div class="alert alert-success"><i class="bi bi-check-circle-fill"></i><span>{{ mesaj }}</span></div>
+{% endif %}
+
+<div class="page-header">
+  <h1>Müşteriler</h1>
+  <p>Bayi listesi ve fiyat tanımları</p>
+</div>
+
+<div style="display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:start;">
+
+  <!-- SOL: EKLE -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-title">Yeni Müşteri</div>
+    </div>
+    <div class="card-body">
+      <form method="post" action="/musteriler/ekle">
+        <div class="form-group">
+          <label class="form-label">Müşteri Adı</label>
+          <input type="text" name="ad" class="form-control" required placeholder="Bayi adını girin">
+        </div>
+        <div class="form-group">
+          <label class="form-label">KDV Durumu</label>
+          <select name="kdv_durum" class="form-select">
+            <option value="Dahil">Dahil</option>
+            <option value="Hariç">Hariç</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">
+          <i class="bi bi-plus-lg"></i> Ekle
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- SAĞ: LİSTE -->
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-header-title">Müşteri Listesi</div>
+        <div class="card-header-sub">{{ musteriler|length }} kayıt</div>
+      </div>
+      <form method="get" action="/musteriler" style="display:flex;gap:8px;">
+        <input type="text" name="ara" class="form-control" placeholder="Ara..." value="{{ ara }}"
+               style="width:180px;">
+        <button type="submit" class="btn btn-ghost btn-sm">
+          <i class="bi bi-search"></i>
+        </button>
+        {% if ara %}
+        <a href="/musteriler" class="btn btn-ghost btn-sm">✕</a>
+        {% endif %}
+      </form>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Müşteri Adı</th>
+            <th>KDV</th>
+            <th>Fiyatlar</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in musteriler %}
+          <tr>
+            <td style="font-weight:500;">{{ m.ad }}</td>
+            <td>
+              <span class="badge badge-neutral">{{ m.kdv_durum }}</span>
+            </td>
+            <td>
+              <a href="/musteriler/fiyatlar/{{ m.ad }}" class="btn btn-ghost btn-sm">
+                <i class="bi bi-tags"></i> Fiyatlar
+              </a>
+            </td>
+            <td style="display:flex;gap:6px;">
+              <button class="btn btn-ghost btn-sm btn-icon"
+                      onclick="openEdit('{{ m.ad }}','{{ m.kdv_durum }}')">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <a href="/musteriler/sil/{{ m.ad }}" class="btn btn-ghost btn-sm btn-icon"
+                 style="color:var(--red);"
+                 onclick="return confirm('{{ m.ad }} silinsin mi?')">
+                <i class="bi bi-trash"></i>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block modals %}
+<div class="modal-overlay" id="editModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Müşteri Düzenle</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <form id="editForm" method="post">
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Müşteri Adı</label>
+          <input type="text" name="yeni_ad" id="e_ad" class="form-control" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">KDV Durumu</label>
+          <select name="kdv_durum" id="e_kdv" class="form-select">
+            <option value="Dahil">Dahil</option>
+            <option value="Hariç">Hariç</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="closeModal()">İptal</button>
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="bi bi-check-lg"></i> Güncelle
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openEdit(ad, kdv) {
+  document.getElementById('e_ad').value   = ad;
+  document.getElementById('e_kdv').value  = kdv;
+  document.getElementById('editForm').action = `/musteriler/guncelle/${encodeURIComponent(ad)}`;
+  document.getElementById('editModal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('editModal').classList.remove('open');
+}
+document.getElementById('editModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+{% endblock %}

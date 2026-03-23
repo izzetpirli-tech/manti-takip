@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Tahsilat — Mantı Takip{% endblock %}
+{% block topbar_title %}Tahsilat Girişi{% endblock %}
+
+{% block content %}
+{% if mesaj %}
+<div class="alert alert-success"><i class="bi bi-check-circle-fill"></i><span>{{ mesaj }}</span></div>
+{% endif %}
+
+<div class="page-header">
+  <h1>Tahsilat Ekle</h1>
+  <p>Müşteriden ödeme alın, bakiyeyi düşürün</p>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start;">
+
+  <!-- SOL: FORM -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-header-title">Ödeme Al</div>
+    </div>
+    <div class="card-body">
+      <form method="post" action="/tahsilat">
+
+        <div class="form-row mb-16">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Tarih</label>
+            <input type="date" name="tarih" class="form-control" value="{{ tarih_bugun }}" required>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Müşteri</label>
+            <div class="ac-wrapper">
+              <input type="text" id="bayiInput" class="form-control"
+                     placeholder="Müşteri ara..." autocomplete="off"
+                     value="{{ secili_bayi or '' }}">
+              <input type="hidden" name="bayi" id="bayiHidden" value="{{ secili_bayi or '' }}" required>
+              <div class="ac-dropdown" id="bayiDropdown"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Tutar (₺)</label>
+          <input type="number" name="tutar" class="form-control input-large"
+                 step="0.5" min="0.5" required placeholder="0.00">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Ödeme Tipi</label>
+          <input type="hidden" name="odeme_tipi" id="odemeHidden" value="Nakit" required>
+          <div class="toggle-group">
+            {% for odeme in odeme_tipleri %}
+            <button type="button"
+                    class="toggle-btn {% if odeme == 'Nakit' %}active{% endif %}"
+                    data-odeme="{{ odeme }}"
+                    onclick="secOdeme(this)">{{ odeme }}</button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Not (opsiyonel)</label>
+          <input type="text" name="not_metin" class="form-control" placeholder="İsteğe bağlı not...">
+        </div>
+
+        <button type="submit" class="btn btn-success btn-lg btn-full">
+          <i class="bi bi-check-lg"></i> Tahsilatı Kaydet
+        </button>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- SAĞ: MÜŞTERİ BİLGİSİ -->
+  <div class="info-panel" id="bakiyePanel" style="display:none;">
+    <div class="info-panel-header">Müşteri Bakiyesi</div>
+    <div class="info-panel-body" id="bakiyeBody"></div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function secOdeme(btn) {
+  document.querySelectorAll('[data-odeme]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('odemeHidden').value = btn.dataset.odeme;
+}
+
+async function onBayiSec(bayi) {
+  if (!bayi) return;
+  const res  = await fetch(`/api/fiyat?bayi=${encodeURIComponent(bayi)}&urun=${encodeURIComponent('Soyalı Bohça')}`);
+  const d    = await res.json();
+  document.getElementById('bakiyeBody').innerHTML = `
+    <div class="info-row">
+      <span class="info-key">Bu Ay Satış</span>
+      <span class="info-val">${d.ay_tl.toLocaleString('tr-TR')} ₺</span>
+    </div>
+    <div class="info-row">
+      <span class="info-key">Bu Ay KG</span>
+      <span class="info-val">${d.ay_kg.toFixed(1)} kg</span>
+    </div>
+    <div class="info-row">
+      <span class="info-key">Bu Yıl Satış</span>
+      <span class="info-val" style="color:var(--accent);">${d.yil_tl.toLocaleString('tr-TR')} ₺</span>
+    </div>
+  `;
+  document.getElementById('bakiyePanel').style.display = 'block';
+}
+
+initAC('bayiInput', 'bayiHidden', 'bayiDropdown', onBayiSec);
+
+window.addEventListener('DOMContentLoaded', () => {
+  const b = document.getElementById('bayiHidden').value;
+  if (b) onBayiSec(b);
+});
+</script>
+{% endblock %}

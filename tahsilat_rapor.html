@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Tahsilat Raporu — Mantı Takip{% endblock %}
+{% block topbar_title %}Tahsilat Raporu{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Tahsilat Raporu</h1>
+  <p>Ödeme tiplerine göre ciro dağılımı ve müşteri bakiyeleri</p>
+</div>
+
+<!-- FİLTRE -->
+<div class="card mb-20">
+  <div class="card-body" style="padding:14px 18px;">
+    <form method="get" action="/tahsilat/rapor"
+          style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+      <div class="form-group" style="margin:0;min-width:150px;">
+        <label class="form-label">Başlangıç</label>
+        <input type="date" name="bas" class="form-control" value="{{ bas }}">
+      </div>
+      <div class="form-group" style="margin:0;min-width:150px;">
+        <label class="form-label">Bitiş</label>
+        <input type="date" name="bit" class="form-control" value="{{ bit }}">
+      </div>
+      <button type="submit" class="btn btn-primary">Hesapla</button>
+    </form>
+  </div>
+</div>
+
+<!-- ÖDEME TİPİ KARTLARI -->
+<div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px;">
+  <div class="stat-card" style="border-top:3px solid var(--green);">
+    <div class="stat-icon" style="background:var(--green-bg);">💵</div>
+    <div class="stat-label">Nakit</div>
+    <div class="stat-value" style="color:var(--green);">{{ "{:,.2f}".format(veriler.get('Nakit', 0)) }}</div>
+    <div class="stat-sub">₺</div>
+  </div>
+  <div class="stat-card" style="border-top:3px solid var(--accent);">
+    <div class="stat-icon" style="background:var(--accent-light);">💳</div>
+    <div class="stat-label">POS</div>
+    <div class="stat-value" style="color:var(--accent);">{{ "{:,.2f}".format(veriler.get('POS', 0)) }}</div>
+    <div class="stat-sub">₺</div>
+  </div>
+  <div class="stat-card" style="border-top:3px solid var(--purple);">
+    <div class="stat-icon" style="background:var(--purple-bg);">🏦</div>
+    <div class="stat-label">Hesaba (EFT)</div>
+    <div class="stat-value" style="color:var(--purple);">{{ "{:,.2f}".format(veriler.get('Hesaba', 0)) }}</div>
+    <div class="stat-sub">₺</div>
+  </div>
+  <div class="stat-card" style="border-top:3px solid var(--red);">
+    <div class="stat-icon" style="background:var(--red-bg);">📋</div>
+    <div class="stat-label">Veresiye</div>
+    <div class="stat-value" style="color:var(--red);">{{ "{:,.2f}".format(veriler.get('Veresiye', 0)) }}</div>
+    <div class="stat-sub">₺</div>
+  </div>
+</div>
+
+<!-- GENEL TOPLAM -->
+<div class="card mb-20" style="background:linear-gradient(135deg,#E8F4FF,#F0F7FF);border-color:rgba(0,113,227,0.15);">
+  <div class="card-body" style="padding:20px 24px;">
+    <div style="font-size:11px;font-weight:600;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Genel Ciro</div>
+    <div style="font-size:36px;font-weight:700;color:var(--accent);letter-spacing:-1px;line-height:1;">
+      {{ "{:,.2f}".format(toplam) }} ₺
+    </div>
+    <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">{{ bas }} — {{ bit }}</div>
+  </div>
+</div>
+
+<!-- MÜŞTERİ BAKİYELERİ -->
+{% if bakiyeler %}
+<div class="card">
+  <div class="card-header">
+    <div>
+      <div class="card-header-title">Müşteri Bakiyeleri</div>
+      <div class="card-header-sub">Tüm zamanlar</div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Müşteri</th>
+          <th>Toplam Satış</th>
+          <th>Tahsilat</th>
+          <th>Bakiye</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in bakiyeler %}
+        <tr>
+          <td style="font-weight:500;">{{ b.bayi }}</td>
+          <td class="mono">{{ "{:,.0f}".format(b.satis) }} ₺</td>
+          <td class="mono" style="color:var(--green);">{{ "{:,.0f}".format(b.tahsilat) }} ₺</td>
+          <td class="mono fw-600"
+              style="color:{% if b.bakiye > 0 %}var(--red){% else %}var(--green){% endif %};">
+            {{ "{:,.0f}".format(b.bakiye) }} ₺
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
