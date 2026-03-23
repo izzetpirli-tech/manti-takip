@@ -1,8 +1,0 @@
-*.db
-*.db-journal
-__pycache__/
-*.pyc
-.env
-Yedekler/
-gecici_rapor.html
-*.xlsx
