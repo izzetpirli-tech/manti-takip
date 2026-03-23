@@ -551,6 +551,135 @@ async def gider_duzenle(request: Request, gider_id: int,
     conn.commit(); conn.close()
     return RedirectResponse("/giderler", status_code=302)
 
+
+# ---------------------------------------------------------
+# KASA
+# ---------------------------------------------------------
+@app.get("/kasa", response_class=HTMLResponse)
+async def kasa(request: Request, tarih: str = ""):
+    if not is_authenticated(request): return RedirectResponse("/login", status_code=302)
+    if not tarih:
+        tarih = request.cookies.get(TARIH_COOKIE, tarih_bugun())
+
+    conn = get_db(); cur = conn.cursor()
+
+    # Günlük nakit girişler (sevkiyat nakit + tahsilat nakit)
+    cur.execute("""SELECT SUM(toplam_tutar) FROM sevkiyatlar
+                   WHERE tarih=? AND odeme_tipi='Nakit' AND urun != 'TAHSİLAT'""", (tarih,))
+    sevk_nakit = cur.fetchone()[0] or 0
+
+    cur.execute("""SELECT SUM(toplam_tutar) FROM sevkiyatlar
+                   WHERE tarih=? AND urun='TAHSİLAT' AND odeme_tipi='Nakit'""", (tarih,))
+    tahsilat_nakit = cur.fetchone()[0] or 0
+
+    # POS ve Hesaba girişler (bilgi amaçlı)
+    cur.execute("""SELECT SUM(toplam_tutar) FROM sevkiyatlar
+                   WHERE tarih=? AND odeme_tipi='POS' AND urun != 'TAHSİLAT'""", (tarih,))
+    sevk_pos = cur.fetchone()[0] or 0
+
+    cur.execute("""SELECT SUM(toplam_tutar) FROM sevkiyatlar
+                   WHERE tarih=? AND odeme_tipi='Hesaba' AND urun != 'TAHSİLAT'""", (tarih,))
+    sevk_hesaba = cur.fetchone()[0] or 0
+
+    cur.execute("""SELECT SUM(toplam_tutar) FROM sevkiyatlar
+                   WHERE tarih=? AND urun='TAHSİLAT' AND odeme_tipi='POS'""", (tarih,))
+    tahsilat_pos = cur.fetchone()[0] or 0
+
+    # Günlük nakit çıkışlar (giderler)
+    cur.execute("""SELECT SUM(tutar) FROM giderler
+                   WHERE tarih=? AND odeme_tipi='Nakit'""", (tarih,))
+    gider_nakit = cur.fetchone()[0] or 0
+
+    cur.execute("""SELECT kategori, SUM(tutar) FROM giderler
+                   WHERE tarih=? GROUP BY kategori""", (tarih,))
+    gider_detay = cur.fetchall()
+
+    # Günlük tüm sevkiyat kalemleri
+    cur.execute("""SELECT bayi, urun, miktar, birim_fiyat, toplam_tutar, odeme_tipi
+                   FROM sevkiyatlar WHERE tarih=? AND urun != 'TAHSİLAT'
+                   ORDER BY id DESC""", (tarih,))
+    sevkiyat_listesi = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("""SELECT bayi, toplam_tutar, odeme_tipi
+                   FROM sevkiyatlar WHERE tarih=? AND urun='TAHSİLAT'
+                   ORDER BY id DESC""", (tarih,))
+    tahsilat_listesi = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("""SELECT kategori, aciklama, tutar, odeme_tipi
+                   FROM giderler WHERE tarih=?
+                   ORDER BY id DESC""", (tarih,))
+    gider_listesi = [dict(r) for r in cur.fetchall()]
+
+    # Aylık özet
+    bas, bit = bu_ay_aralik()
+    cur.execute("""SELECT SUM(toplam_tutar) FROM sevkiyatlar
+                   WHERE tarih BETWEEN ? AND ? AND urun != 'TAHSİLAT'""", (bas, bit))
+    ay_ciro = cur.fetchone()[0] or 0
+
+    cur.execute("""SELECT SUM(tutar) FROM giderler
+                   WHERE tarih BETWEEN ? AND ?""", (bas, bit))
+    ay_gider = cur.fetchone()[0] or 0
+
+    cur.execute("""SELECT SUM(toplam_tutar) FROM sevkiyatlar
+                   WHERE tarih BETWEEN ? AND ? AND urun='TAHSİLAT'""", (bas, bit))
+    ay_tahsilat = cur.fetchone()[0] or 0
+
+    # Veresiye bakiyeleri (tüm zamanlar)
+    cur.execute("SELECT DISTINCT bayi FROM sevkiyatlar ORDER BY bayi")
+    bayiler = [r[0] for r in cur.fetchall()]
+    veresiyeler = []
+    for b in bayiler:
+        cur.execute("SELECT SUM(toplam_tutar) FROM sevkiyatlar WHERE bayi=? AND urun != 'TAHSİLAT'", (b,))
+        s = cur.fetchone()[0] or 0
+        cur.execute("SELECT SUM(toplam_tutar) FROM sevkiyatlar WHERE bayi=? AND urun = 'TAHSİLAT'", (b,))
+        t = cur.fetchone()[0] or 0
+        if s - t > 0:
+            veresiyeler.append({"bayi": b, "bakiye": s - t})
+    veresiyeler.sort(key=lambda x: x["bakiye"], reverse=True)
+    conn.close()
+
+    toplam_nakit_giris  = sevk_nakit + tahsilat_nakit
+    toplam_nakit_cikis  = gider_nakit
+    kasa_net            = toplam_nakit_giris - toplam_nakit_cikis
+    toplam_veresiye     = sum(v["bakiye"] for v in veresiyeler)
+
+    # Açılış bakiyesi: bir önceki günün kasa neti
+    from datetime import datetime, timedelta
+    onceki_gun = (datetime.strptime(tarih, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+    cur2 = conn.cursor() if False else get_db().cursor()
+    cur2.connection.row_factory = sqlite3.Row
+
+    # Basit yöntem: tüm geçmiş günlerin nakit giriş - çıkış toplamı
+    conn2 = get_db(); cur2 = conn2.cursor()
+    cur2.execute("SELECT SUM(toplam_tutar) FROM sevkiyatlar WHERE tarih < ? AND odeme_tipi='Nakit' AND urun != 'TAHSİLAT'", (tarih,))
+    gecmis_sevk = cur2.fetchone()[0] or 0
+    cur2.execute("SELECT SUM(toplam_tutar) FROM sevkiyatlar WHERE tarih < ? AND urun='TAHSİLAT' AND odeme_tipi='Nakit'", (tarih,))
+    gecmis_tah = cur2.fetchone()[0] or 0
+    cur2.execute("SELECT SUM(tutar) FROM giderler WHERE tarih < ? AND odeme_tipi='Nakit'", (tarih,))
+    gecmis_gider = cur2.fetchone()[0] or 0
+    conn2.close()
+    acilis_bakiye = gecmis_sevk + gecmis_tah - gecmis_gider
+    kapanis_bakiye = acilis_bakiye + kasa_net
+
+    return templates.TemplateResponse("kasa.html", ctx(request,
+        tarih=tarih,
+        sevk_nakit=sevk_nakit, tahsilat_nakit=tahsilat_nakit,
+        sevk_pos=sevk_pos, sevk_hesaba=sevk_hesaba, tahsilat_pos=tahsilat_pos,
+        gider_nakit=gider_nakit, gider_detay=gider_detay,
+        toplam_nakit_giris=toplam_nakit_giris,
+        toplam_nakit_cikis=toplam_nakit_cikis,
+        kasa_net=kasa_net,
+        sevkiyat_listesi=sevkiyat_listesi,
+        tahsilat_listesi=tahsilat_listesi,
+        gider_listesi=gider_listesi,
+        ay_ciro=ay_ciro, ay_gider=ay_gider, ay_tahsilat=ay_tahsilat,
+        ay_kar=ay_ciro - ay_gider,
+        veresiyeler=veresiyeler,
+        toplam_veresiye=toplam_veresiye,
+        acilis_bakiye=acilis_bakiye,
+        kapanis_bakiye=kapanis_bakiye
+    ))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=int(os.environ.get("PORT", 8000)), reload=False)

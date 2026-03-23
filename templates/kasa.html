@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}Kasa — Mantı Takip{% endblock %}
+{% block topbar_title %}Kasa{% endblock %}
+{% block topbar_actions %}
+  <form method="get" action="/kasa" style="display:flex;align-items:center;gap:8px;">
+    <input type="date" name="tarih" class="form-control" value="{{ tarih }}" style="width:160px;">
+    <button type="submit" class="btn btn-primary btn-sm">Göster</button>
+  </form>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Kasa Raporu</h1>
+  <p>{{ tarih }} günü nakit akışı</p>
+</div>
+
+<!-- AÇILIŞ / KAPANIŞ -->
+<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;margin-bottom:24px;">
+  <div class="stat-card" style="background:#F5F5F7;border-style:dashed;">
+    <div class="stat-label">🔓 Açılış Bakiyesi</div>
+    <div class="stat-value" style="color:var(--text-secondary);font-size:20px;">{{ "{:,.0f}".format(acilis_bakiye) }}</div>
+    <div class="stat-sub">₺ · Gün başı kasa</div>
+  </div>
+  <div class="stat-card" style="border-top:3px solid var(--green);">
+    <div class="stat-label">💵 Nakit Giriş</div>
+    <div class="stat-value" style="color:var(--green);">{{ "{:,.0f}".format(toplam_nakit_giris) }}</div>
+    <div class="stat-sub">₺ · Sevkiyat + Tahsilat</div>
+  </div>
+  <div class="stat-card" style="border-top:3px solid var(--red);">
+    <div class="stat-label">💸 Nakit Çıkış</div>
+    <div class="stat-value" style="color:var(--red);">{{ "{:,.0f}".format(toplam_nakit_cikis) }}</div>
+    <div class="stat-sub">₺ · Giderler</div>
+  </div>
+  <div class="stat-card" style="border-top:3px solid var(--accent);background:#F0F7FF;">
+    <div class="stat-label">🔒 Kapanış Bakiyesi</div>
+    <div class="stat-value" style="color:var(--accent);">{{ "{:,.0f}".format(kapanis_bakiye) }}</div>
+    <div class="stat-sub">₺ · Gün sonu kasa</div>
+  </div>
+</div>
+
+<!-- DETAY SATIRLARI -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;">
+  <div class="card">
+    <div class="card-header"><div class="card-header-title" style="color:var(--green);">💵 Nakit Giriş Detayı</div></div>
+    <div class="card-body" style="padding:0;">
+      <div style="display:flex;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--border);">
+        <span style="font-size:13px;color:var(--text-secondary);">Sevkiyat Nakit</span>
+        <span class="mono fw-600">{{ "{:,.0f}".format(sevk_nakit) }} ₺</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--border);">
+        <span style="font-size:13px;color:var(--text-secondary);">Tahsilat Nakit</span>
+        <span class="mono fw-600">{{ "{:,.0f}".format(tahsilat_nakit) }} ₺</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--border);">
+        <span style="font-size:13px;color:var(--text-tertiary);">POS (Bilgi)</span>
+        <span class="mono" style="color:var(--text-tertiary);">{{ "{:,.0f}".format(sevk_pos + tahsilat_pos) }} ₺</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:10px 18px;">
+        <span style="font-size:13px;color:var(--text-tertiary);">Hesaba (Bilgi)</span>
+        <span class="mono" style="color:var(--text-tertiary);">{{ "{:,.0f}".format(sevk_hesaba) }} ₺</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-header-title" style="color:var(--red);">💸 Nakit Çıkış Detayı</div></div>
+    <div class="card-body" style="padding:0;">
+      {% if gider_detay %}
+        {% for kat, top in gider_detay %}
+        <div style="display:flex;justify-content:space-between;padding:10px 18px;border-bottom:1px solid var(--border);">
+          <span style="font-size:13px;color:var(--text-secondary);">{{ kat }}</span>
+          <span class="mono fw-600" style="color:var(--red);">{{ "{:,.0f}".format(top) }} ₺</span>
+        </div>
+        {% endfor %}
+        <div style="display:flex;justify-content:space-between;padding:10px 18px;">
+          <span style="font-size:13px;font-weight:600;">Toplam</span>
+          <span class="mono fw-600" style="color:var(--red);">{{ "{:,.0f}".format(toplam_nakit_cikis) }} ₺</span>
+        </div>
+      {% else %}
+        <div style="text-align:center;padding:32px;color:var(--text-tertiary);font-size:13px;">Gider kaydı yok</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- AYLIK ÖZET -->
+<div class="card mb-20">
+  <div class="card-header"><div class="card-header-title">📅 Aylık Özet</div></div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);">
+    <div style="padding:16px 18px;border-right:1px solid var(--border);">
+      <div class="stat-label">Ciro</div>
+      <div class="stat-value" style="font-size:20px;color:var(--accent);">{{ "{:,.0f}".format(ay_ciro) }} ₺</div>
+    </div>
+    <div style="padding:16px 18px;border-right:1px solid var(--border);">
+      <div class="stat-label">Gider</div>
+      <div class="stat-value" style="font-size:20px;color:var(--red);">{{ "{:,.0f}".format(ay_gider) }} ₺</div>
+    </div>
+    <div style="padding:16px 18px;border-right:1px solid var(--border);">
+      <div class="stat-label">Net Kâr</div>
+      <div class="stat-value" style="font-size:20px;color:{% if ay_kar >= 0 %}var(--green){% else %}var(--red){% endif %};">{{ "{:,.0f}".format(ay_kar) }} ₺</div>
+    </div>
+    <div style="padding:16px 18px;">
+      <div class="stat-label">Tahsilat</div>
+      <div class="stat-value" style="font-size:20px;color:var(--purple);">{{ "{:,.0f}".format(ay_tahsilat) }} ₺</div>
+    </div>
+  </div>
+</div>
+
+<!-- VERESİYE + SEVKİYAT -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <div class="card-header-title">💳 Açık Veresiye</div>
+        <div class="card-header-sub">Toplam: {{ "{:,.0f}".format(toplam_veresiye) }} ₺</div>
+      </div>
+    </div>
+    {% if veresiyeler %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Müşteri</th><th>Bakiye</th></tr></thead>
+        <tbody>
+          {% for v in veresiyeler %}
+          <tr>
+            <td style="font-weight:500;">{{ v.bayi }}</td>
+            <td class="mono fw-600" style="color:var(--red);">{{ "{:,.0f}".format(v.bakiye) }} ₺</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card-body" style="text-align:center;padding:32px;color:var(--text-tertiary);">Açık bakiye yok 🎉</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-header-title">📦 Günlük Sevkiyat</div></div>
+    {% if sevkiyat_listesi %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Bayi</th><th>Ürün</th><th>KG</th><th>Tutar</th><th>Ödeme</th></tr></thead>
+        <tbody>
+          {% for s in sevkiyat_listesi %}
+          <tr>
+            <td style="font-weight:500;font-size:12px;">{{ s.bayi }}</td>
+            <td style="font-size:12px;color:var(--text-secondary);">{{ s.urun }}</td>
+            <td class="mono" style="font-size:12px;">{{ "%.1f"|format(s.miktar) }}</td>
+            <td class="mono fw-600" style="font-size:12px;color:var(--accent);">{{ "{:,.0f}".format(s.toplam_tutar) }} ₺</td>
+            <td><span class="badge badge-{{ s.odeme_tipi | lower }}">{{ s.odeme_tipi }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card-body" style="text-align:center;padding:32px;color:var(--text-tertiary);">Bu tarihte sevkiyat yok</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- TAHSİLAT + GİDER -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+  <div class="card">
+    <div class="card-header"><div class="card-header-title">💵 Günlük Tahsilat</div></div>
+    {% if tahsilat_listesi %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Bayi</th><th>Tutar</th><th>Ödeme</th></tr></thead>
+        <tbody>
+          {% for t in tahsilat_listesi %}
+          <tr>
+            <td style="font-weight:500;">{{ t.bayi }}</td>
+            <td class="mono fw-600" style="color:var(--green);">{{ "{:,.0f}".format(t.toplam_tutar) }} ₺</td>
+            <td><span class="badge badge-{{ t.odeme_tipi | lower }}">{{ t.odeme_tipi }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card-body" style="text-align:center;padding:32px;color:var(--text-tertiary);">Bu tarihte tahsilat yok</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-header-title">💸 Günlük Giderler</div></div>
+    {% if gider_listesi %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>Kategori</th><th>Açıklama</th><th>Tutar</th><th>Ödeme</th></tr></thead>
+        <tbody>
+          {% for g in gider_listesi %}
+          <tr>
+            <td style="font-size:12px;font-weight:500;">{{ g.kategori }}</td>
+            <td style="font-size:12px;color:var(--text-secondary);">{{ g.aciklama or '—' }}</td>
+            <td class="mono fw-600" style="color:var(--red);">{{ "{:,.0f}".format(g.tutar) }} ₺</td>
+            <td><span class="badge badge-{{ g.odeme_tipi | lower }}">{{ g.odeme_tipi }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card-body" style="text-align:center;padding:32px;color:var(--text-tertiary);">Bu tarihte gider yok</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
