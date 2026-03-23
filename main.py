@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Form, Response, Depends, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
+
 from fastapi.templating import Jinja2Templates
 import sqlite3, os, shutil
 from datetime import datetime, timedelta
@@ -8,7 +8,7 @@ from typing import Optional
 import json
 
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
+
 templates = Jinja2Templates(directory="templates")
 
 # ---------------------------------------------------------
